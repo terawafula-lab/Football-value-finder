@@ -1,0 +1,36 @@
+import streamlit as st
+import requests
+import pandas as pd
+
+st.set_page_config(page_title="Value Finder", page_icon="💰")
+st.title("💰 Football Value Finder")
+
+API_KEY = st.secrets.get("API_FOOTBALL_KEY", "")
+if not API_KEY:
+    st.warning("Add API key in Streamlit Secrets to see real games")
+    st.info("Go to share.streamlit.io → Your app → Settings → Secrets → Add: API_FOOTBALL_KEY = \"your_key\"")
+    st.stop()
+
+HEADERS = {"x-apisports-key": API_KEY}
+LEAGUE = st.sidebar.selectbox("League", [276, 39, 140], format_func=lambda x: {276:"FKF Kenya", 39:"【entity-Premier League¦canonical_name=Premier League】", 140:"La Liga"}[x])
+
+r = requests.get("https://v3.football.api-sports.io/fixtures", headers=HEADERS, params={"league": LEAGUE, "season": 2025, "next": 10})
+fixtures = r.json().get("response", [])
+
+rows = []
+for f in fixtures:
+    fid = f["fixture"]["id"]
+    game = f"{f['teams']['home']['name']} vs {f['teams']['away']['name']}"
+    date = f["fixture"]["date"][:10]
+    try:
+        o = requests.get("https://v3.football.api-sports.io/odds", headers=HEADERS, params={"fixture": fid}).json()["response"][0]["bookmakers"][0]["bets"][0]["values"]
+        h = next((x["odd"] for x in o if x["value"]=="Home"), "-")
+        d = next((x["odd"] for x in o if x["value"]=="Draw"), "-")
+        a = next((x["odd"] for x in o if x["value"]=="Away"), "-")
+        odds = f"{h}/{d}/{a}"
+    except:
+        odds = "No odds yet"
+    rows.append({"Date": date, "Game": game, "Odds": odds})
+
+st.dataframe(pd.DataFrame(rows), use_container_width=True)
+st.success(f"Found {len(rows)} games")
