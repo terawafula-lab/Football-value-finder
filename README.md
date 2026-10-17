@@ -1,1 +1,0 @@
-# Football-value-finder
